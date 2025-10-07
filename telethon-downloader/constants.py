@@ -61,6 +61,20 @@ class EnvironmentReader:
         self.ENABLED_UNRAR = os.environ.get("ENABLED_UNRAR", False)
         self.ENABLED_7Z = os.environ.get("ENABLED_7Z", False)
 
+        ## GROUP SCANNER
+        self.SCAN_MIN_FILE_SIZE_MB = int(os.environ.get("SCAN_MIN_FILE_SIZE_MB", 100))
+        self.SCAN_MAX_PARALLEL = int(os.environ.get("SCAN_MAX_PARALLEL", 2))
+        self.SCAN_DEFAULT_DAYS = int(os.environ.get("SCAN_DEFAULT_DAYS", 30))
+        self.SCAN_MAX_DAYS = int(os.environ.get("SCAN_MAX_DAYS", 365))
+        self.SCAN_DEFAULT_LIMIT = int(os.environ.get("SCAN_DEFAULT_LIMIT", 0)) if os.environ.get("SCAN_DEFAULT_LIMIT", "0") != "0" else None
+        
+        ## AUTO SCANNER (Monitoreo automático en tiempo real)
+        self.AUTO_SCAN_ENABLED = os.environ.get("AUTO_SCAN_ENABLED", "False").lower() == "true"
+        self.AUTO_SCAN_GROUPS = os.environ.get("AUTO_SCAN_GROUPS", "").replace(" ", "").split(",") if os.environ.get("AUTO_SCAN_GROUPS") else []
+        self.AUTO_SCAN_MIN_SIZE_MB = int(os.environ.get("AUTO_SCAN_MIN_SIZE_MB", 100))
+        self.AUTO_SCAN_NOTIFY_USER = int(os.environ.get("AUTO_SCAN_NOTIFY_USER")) if os.environ.get("AUTO_SCAN_NOTIFY_USER") else None
+        self.AUTO_SCAN_WHITELIST_ONLY = os.environ.get("AUTO_SCAN_WHITELIST_ONLY", "True").lower() == "true"
+
         self.LANGUAGE = os.environ.get("APP_LANGUAGE", "en_EN")
 
         self.PATH_CONFIG = "/config/config.ini"

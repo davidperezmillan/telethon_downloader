@@ -33,6 +33,20 @@ services:
       - YOUTUBE_TIMEOUT_OPTION=5                        # OPTIONAL
       - YOUTUBE_AUDIO_FOLDER=/youtube/audio             # OPTIONAL
       - YOUTUBE_VIDEO_FOLDER=/youtube/video             # OPTIONAL
+      
+      # GROUP SCANNER SETTINGS (Manual historical scanning)
+      - SCAN_MIN_FILE_SIZE_MB=100                       # OPTIONAL (Minimum file size in MB to consider as "large")
+      - SCAN_MAX_PARALLEL=2                             # OPTIONAL (Max parallel downloads during scanning)
+      - SCAN_DEFAULT_DAYS=30                            # OPTIONAL (Default days to look back)
+      - SCAN_MAX_DAYS=365                               # OPTIONAL (Maximum days allowed)
+      - SCAN_DEFAULT_LIMIT=0                            # OPTIONAL (Default message limit, 0 = no limit)
+      
+      # AUTO SCANNER SETTINGS (Real-time automatic monitoring)
+      - AUTO_SCAN_ENABLED=true                         # OPTIONAL (Enable automatic monitoring of groups)
+      - AUTO_SCAN_GROUPS=-4862761333                    # OPTIONAL (Comma-separated list of group IDs: -1001234567890,-1001987654321)
+      - AUTO_SCAN_MIN_SIZE_MB=100                       # OPTIONAL (Minimum file size in MB for auto download)
+      - AUTO_SCAN_NOTIFY_USER=true                      # OPTIONAL (Notify user when auto-downloading)
+      - AUTO_SCAN_WHITELIST_ONLY=true                   # OPTIONAL (true=only monitor listed groups, false=monitor all except listed)
     volumes:
       - /path/to/config:/config
       - /path/to/download:/download
