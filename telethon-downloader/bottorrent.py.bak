@@ -85,6 +85,18 @@ class TelegramBot:
             self.constants.get_variable("TG_PROGRESS_DOWNLOAD") == "True"
             or self.constants.get_variable("TG_PROGRESS_DOWNLOAD") == True
         )
+        self.DISABLE_GROUP_NOTIFICATIONS = (
+            self.constants.get_variable("DISABLE_GROUP_NOTIFICATIONS") == "True"
+            or self.constants.get_variable("DISABLE_GROUP_NOTIFICATIONS") == True
+        )
+        self.PROGRESS_DOWNLOAD = (
+            self.constants.get_variable("PROGRESS_DOWNLOAD") == "True"
+            or self.constants.get_variable("PROGRESS_DOWNLOAD") == True
+        )
+        self.AUTO_SCAN_NOTIFY_TO_PRIVATE = (
+            self.constants.get_variable("AUTO_SCAN_NOTIFY_TO_PRIVATE") == "True"
+            or self.constants.get_variable("AUTO_SCAN_NOTIFY_TO_PRIVATE") == True
+        )
         self.ENABLED_UNZIP = (
             self.constants.get_variable("ENABLED_UNZIP") == "True"
             or self.constants.get_variable("ENABLED_UNZIP") == True
@@ -156,6 +168,22 @@ class TelegramBot:
         )
         self.client.add_event_handler(self.handle_new_message, events.NewMessage)
         self.client.add_event_handler(self.handle_buttons, events.CallbackQuery)
+
+    async def send_or_edit_message(self, event, message, text):
+        """Helper function to send message to private user or edit group message based on settings"""
+        if self.DISABLE_GROUP_NOTIFICATIONS and hasattr(event.peer_id, 'chat_id') and event.peer_id.chat_id < 0:
+            # For group messages when notifications are disabled
+            if self.AUTO_SCAN_NOTIFY_TO_PRIVATE and message:
+                return await self.client.send_message(
+                    int(self.AUTO_SCAN_NOTIFY_USER),
+                    text
+                )
+            return message  # Return unchanged message if not sending to private
+        else:
+            # Normal behavior: edit the message
+            if message:
+                return await message.edit(text)
+            return message
 
         self.ytdownloader = YouTubeDownloader()
         self.command_handler = CommandHandler(self)
@@ -415,10 +443,31 @@ class TelegramBot:
     async def download_media(self, event, message=None):
         try:
             if not message:
-                message = await event.reply("Download in queue...")
+                # Check if we should disable group notifications
+                if self.DISABLE_GROUP_NOTIFICATIONS and hasattr(event.peer_id, 'chat_id') and event.peer_id.chat_id < 0:
+                    # Send notification to private user instead of group
+                    if self.AUTO_SCAN_NOTIFY_TO_PRIVATE:
+                        message = await self.client.send_message(
+                            int(self.AUTO_SCAN_NOTIFY_USER),
+                            "Download in queue..."
+                        )
+                    else:
+                        # Create a dummy message object to avoid errors in subsequent operations
+                        message = None
+                else:
+                    message = await event.reply("Download in queue...")
             else:
-                message = await message.edit("Download in queue, retrying... ")
-                await asyncio.sleep(3)
+                if self.DISABLE_GROUP_NOTIFICATIONS and hasattr(event.peer_id, 'chat_id') and event.peer_id.chat_id < 0:
+                    # For group messages when notifications are disabled, don't edit the message
+                    if message and self.AUTO_SCAN_NOTIFY_TO_PRIVATE:
+                        message = await self.client.send_message(
+                            int(self.AUTO_SCAN_NOTIFY_USER),
+                            "Download in queue, retrying... "
+                        )
+                    await asyncio.sleep(3)
+                else:
+                    message = await message.edit("Download in queue, retrying... ")
+                    await asyncio.sleep(3)
 
             user_or_chat_id = (
                 event.peer_id.user_id
@@ -462,7 +511,7 @@ class TelegramBot:
                     }
 
             async with self.semaphore:
-                message = await message.edit("Download in progress")
+                message = await self.send_or_edit_message(event, message, "Download in progress")
                 if isinstance(event.media, MessageMediaDocument):
                     download_response = await self.downloadDocumentAttributeFilename(
                         event, message
@@ -587,7 +636,8 @@ class TelegramBot:
             message_text += self.templatesLanguage.template(
                 "MESSAGE_DOWNLOAD_FROM_ID"
             ).format(from_id=from_id)
-            message = await message.edit(message_text)
+            
+            message = await self.send_or_edit_message(event, message, message_text)
 
             if isinstance(event.media, MessageMediaDocument):
                 for attr in event.media.document.attributes:
@@ -675,7 +725,7 @@ class TelegramBot:
                 "MESSAGE_DOWNLOAD_AT"
             ).format(end_time=end_time_short)
 
-            message = await message.edit(f"{message_text}")
+            message = await self.send_or_edit_message(event, message, f"{message_text}")
 
             return {
                 "exception": None,
@@ -690,7 +740,7 @@ class TelegramBot:
             message_text += self.templatesLanguage.template(
                 "MESSAGE_DOWNLOAD_AT"
             ).format(end_time=end_time_short)
-            message = await message.edit(message_text)
+            message = await self.send_or_edit_message(event, message, message_text)
             return {
                 "exception": e,
                 "message": message,
@@ -703,7 +753,7 @@ class TelegramBot:
             message_text += self.templatesLanguage.template(
                 "MESSAGE_DOWNLOAD_AT"
             ).format(end_time=end_time_short)
-            message = await message.edit(message_text)
+            message = await self.send_or_edit_message(event, message, message_text)
             return {
                 "exception": e,
                 "message": message,
@@ -1068,7 +1118,12 @@ class TelegramBot:
 
     def progress_callback(self, message, event_id, from_id=None):
         async def callback(current, total):
-            if not self.TG_PROGRESS_DOWNLOAD:
+            # Check if progress should be disabled completely
+            if not self.TG_PROGRESS_DOWNLOAD or not self.PROGRESS_DOWNLOAD:
+                return
+
+            # Check if group notifications are disabled and this is a group message
+            if self.DISABLE_GROUP_NOTIFICATIONS and message.chat_id < 0:
                 return
 
             try:
